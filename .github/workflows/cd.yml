@@ -16,5 +16,34 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Pull and Deploy
-        run: echo "Deploying ..."
+      - name: Deploy to all ec2 in asg using ssm
+        run: |
+          echo "Pulling the image and deploying it in the container"
+
+          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[0].AutoScalingGroupName" --output text)
+
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names $ASG_NAME \
+            --query "AutoScalingGroups[].Instances[].InstanceId" \
+            --output text)
+
+          echo "Found instances: $INSTANCE_IDS"
+
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "No running instances found in ASG"
+            exit 1
+          fi
+
+          echo "Deploying container to all instances via SSM..."
+
+          aws ssm send-command \
+            --instance-ids $INSTANCE_IDS \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy latest Docker image" \
+            --parameters '{"commands":[
+              "sudo -u dockeruser docker pull '${{ secrets.DOCKER_USERNAME }}'/nextjs-website:${{ github.event.workflow_run.head_branch }}",
+              "sudo -u dockeruser docker stop nextjs-website || true",
+              "sudo -u dockeruser docker rm nextjs-website || true",
+              "sudo -u dockeruser docker run -d --name nextjs-website -p 3000:3000 --restart unless-stopped '${{ secrets.DOCKER_USERNAME }}'/nextjs-website:${{ github.event.workflow_run.head_branch }}"
+            ]}' \
+            --region ${{ secrets.AWS_REGION }}
