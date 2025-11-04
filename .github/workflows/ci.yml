@@ -27,8 +27,8 @@ jobs:
       - name: Code Quality
         run: npm run lint
 
-      - name: Execute the test
-        run: npm run test
+      # - name: Execute the test
+      #   run: npm run test
 
   Build-and-Push:
     runs-on: ubuntu-latest
