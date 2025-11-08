@@ -29,11 +29,6 @@ jobs:
 
           echo "Found instances: $INSTANCE_IDS"
 
-          if [ -z "$INSTANCE_IDS" ]; then
-            echo "No running instances found in ASG"
-            exit 1
-          fi
-
           echo "Deploying container to all instances via SSM..."
 
           aws ssm send-command \
